@@ -119,7 +119,7 @@ fn pg_array_containing_null() {
 
 fn query_single_value<T: NativeSqlType, U: Queriable<T>>(sql: &str) -> U {
     let connection = connection();
-    let mut cursor = connection.query_sql::<T, U>(sql)
+    let mut cursor = connection.query_sql::<T, U, _>(sql)
         .unwrap();
     cursor.nth(0).unwrap()
 }

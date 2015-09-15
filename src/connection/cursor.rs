@@ -4,13 +4,13 @@ use types::{NativeSqlType, FromSqlRow};
 
 use std::marker::PhantomData;
 
-pub struct Cursor<ST, T> {
+pub struct Cursor<ST, T, Hack = ()> {
     current_row: usize,
     db_result: DbResult,
-    _marker: PhantomData<(ST, T)>,
+    _marker: PhantomData<(ST, T, Hack)>,
 }
 
-impl<ST, T> Cursor<ST, T> {
+impl<ST, T, Hack> Cursor<ST, T, Hack> {
     pub fn new(db_result: DbResult) -> Self {
         Cursor {
             current_row: 0,
@@ -20,9 +20,9 @@ impl<ST, T> Cursor<ST, T> {
     }
 }
 
-impl<ST, T> Iterator for Cursor<ST, T> where
+impl<ST, T, Hack> Iterator for Cursor<ST, T, Hack> where
     ST: NativeSqlType,
-    T: Queriable<ST>,
+    T: Queriable<ST, Hack>,
 {
     type Item = T;
 

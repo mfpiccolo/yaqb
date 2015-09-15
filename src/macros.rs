@@ -180,9 +180,10 @@ macro_rules! joinable_inner {
     }
 }
 
+#[macro_export]
 macro_rules! belongs_to {
     ($parent:ty, $parent_table:ident, $child:ty, $child_table:ident) => {
-        impl $crate::Queriable<($child_table::SqlType, $parent_table::SqlType)>
+        impl $crate::Queriable<($child_table::SqlType, $parent_table::SqlType), $parent>
         for ($child, $parent) {
             type Row = (
                 <$child as $crate::Queriable<$child_table::SqlType>>::Row,

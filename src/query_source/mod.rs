@@ -8,7 +8,7 @@ use self::select::SelectSqlQuerySource;
 
 pub use self::joins::JoinTo;
 
-pub trait Queriable<ST: NativeSqlType> {
+pub trait Queriable<ST: NativeSqlType, Hack = ()> {
     type Row: FromSqlRow<ST>;
 
     fn build(row: Self::Row) -> Self;

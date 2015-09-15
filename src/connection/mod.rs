@@ -47,17 +47,17 @@ impl Connection {
         self.query_all(source).map(|mut e| e.nth(0))
     }
 
-    pub fn query_all<T, U>(&self, source: &T) -> Result<Cursor<T::SqlType, U>> where
+    pub fn query_all<T, U, Hack>(&self, source: &T) -> Result<Cursor<T::SqlType, U, Hack>> where
         T: QuerySource,
-        U: Queriable<T::SqlType>,
+        U: Queriable<T::SqlType, Hack>,
     {
         let sql = self.prepare_query(source);
         self.query_sql(&sql)
     }
 
-    pub fn query_sql<T, U>(&self, query: &str) -> Result<Cursor<T, U>> where
+    pub fn query_sql<T, U, Hack>(&self, query: &str) -> Result<Cursor<T, U, Hack>> where
         T: NativeSqlType,
-        U: Queriable<T>,
+        U: Queriable<T, Hack>,
     {
         let result = try!(self.execute_inner(query));
         Ok(Cursor::new(result))
