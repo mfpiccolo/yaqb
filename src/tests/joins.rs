@@ -97,3 +97,34 @@ fn select_only_one_side_of_join() {
 
     assert_eq!(expected_data, actual_data);
 }
+
+#[test]
+fn has_many() {
+    let connection = connection();
+    setup_users_table(&connection);
+    setup_posts_table(&connection);
+
+    connection.execute("INSERT INTO users (name) VALUES ('Sean'), ('Tess'), ('Jim')")
+        .unwrap();
+    connection.execute("INSERT INTO posts (user_id, title) VALUES
+        (1, 'Hello'),
+        (1, 'World'),
+        (2, 'Hello 2')
+    ").unwrap();
+
+    let source = users::table.left_outer_join(posts::table);
+
+    let expected_data = vec![
+        (User::new(1, "Sean"), vec![
+            Post { id: 1, title: "Hello".to_string(), user_id: 1 },
+            Post { id: 2, title: "World".to_string(), user_id: 1 },
+        ]),
+        (User::new(2, "Tess"), vec![
+           Post { id: 3, title: "Hello 2".to_string(), user_id: 2 },
+        ]),
+        (User::new(3, "Jim"), Vec::new()),
+    ];
+    let actual_data: Vec<_> = connection.query_all(&source).unwrap().collect();
+
+    assert_eq!(expected_data, actual_data);
+}
