@@ -198,3 +198,22 @@ macro_rules! belongs_to {
         }
     }
 }
+
+macro_rules! has_many {
+    ($parent:ty, $parent_table:ident, $child:ty, $child_table:ident) => {
+        impl $crate::Queriable<($parent_table::SqlType, $crate::types::Many<$child_table::SqlType>)>
+        for ($parent, Vec<$child>) {
+            type Row = (
+                <$parent as $crate::Queriable<$parent_table::SqlType>>::Row,
+                Vec<<$child as $crate::Queriable<$child_table::SqlType>>::Row>,
+            );
+
+            fn build(row: Self::Row) -> Self {
+                (
+                    <$parent as $crate::Queriable<$parent_table::SqlType>>::build(row.0),
+                    row.1.into_iter().map(<$child as $crate::Queriable<$child_table::SqlType>>::build),
+                )
+            }
+        }
+    }
+}

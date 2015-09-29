@@ -1,7 +1,7 @@
 mod joins;
 mod select;
 
-use types::{FromSqlResult, NativeSqlType};
+use types::{FromSqlResult, NativeSqlType, Many};
 use std::convert::Into;
 pub use self::joins::{InnerJoinSource, LeftOuterJoinSource};
 use self::select::SelectSqlQuerySource;
@@ -13,6 +13,9 @@ pub trait Queriable<ST: NativeSqlType> {
 
     fn build(row: Self::Row) -> Self;
 }
+
+// impl<ST, T> Queriable<Many<ST>> for Vec<T> {
+//     type 
 
 pub trait QuerySource: Sized {
     type SqlType: NativeSqlType;
