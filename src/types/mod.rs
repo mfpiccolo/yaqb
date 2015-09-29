@@ -1,6 +1,6 @@
 mod impls;
 
-use row::Row;
+use row::{Row, Rows};
 use std::error::Error;
 use std::io::Write;
 
@@ -45,6 +45,19 @@ impl<A, T> FromSqlRow<A> for T where
             Some(row.take())
         };
         Self::from_sql(bytes)
+    }
+}
+
+pub trait FromSqlResult<A: NativeSqlType>: Sized {
+    fn build_from_rows<'a, R: Rows<'a>>(rows: &'a mut R) -> Option<Result<Self, Box<Error>>>;
+}
+
+impl<A, T> FromSqlResult<A> for T where
+    A: NativeSqlType,
+    T: FromSqlRow<A>,
+{
+    fn build_from_rows<'a, R: Rows<'a>>(rows: &'a mut R) -> Option<Result<Self, Box<Error>>> {
+        rows.next().as_mut().map(Self::build_from_row)
     }
 }
 

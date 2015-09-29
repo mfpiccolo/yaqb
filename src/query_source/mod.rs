@@ -1,7 +1,7 @@
 mod joins;
 mod select;
 
-use types::{FromSqlRow, NativeSqlType};
+use types::{FromSqlResult, NativeSqlType};
 use std::convert::Into;
 pub use self::joins::InnerJoinSource;
 use self::select::SelectSqlQuerySource;
@@ -9,7 +9,7 @@ use self::select::SelectSqlQuerySource;
 pub use self::joins::JoinTo;
 
 pub trait Queriable<ST: NativeSqlType> {
-    type Row: FromSqlRow<ST>;
+    type Row: FromSqlResult<ST>;
 
     fn build(row: Self::Row) -> Self;
 }
