@@ -2,7 +2,6 @@ extern crate pq_sys;
 extern crate libc;
 
 use {Result, Error, Connection};
-use row::DbRow;
 
 use self::pq_sys::*;
 use std::ffi::CStr;
@@ -39,10 +38,6 @@ impl DbResult {
 
     pub fn num_rows(&self) -> usize {
         unsafe { PQntuples(self.internal_result) as usize }
-    }
-
-    pub fn get_row(&self, idx: usize) -> DbRow {
-        DbRow::new(self, idx)
     }
 
     pub fn get(&self, row_idx: usize, col_idx: usize) -> &[u8] {

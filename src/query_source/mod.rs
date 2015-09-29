@@ -3,7 +3,7 @@ mod select;
 
 use types::{FromSqlResult, NativeSqlType};
 use std::convert::Into;
-pub use self::joins::InnerJoinSource;
+pub use self::joins::{InnerJoinSource, LeftOuterJoinSource};
 use self::select::SelectSqlQuerySource;
 
 pub use self::joins::JoinTo;
@@ -59,6 +59,13 @@ pub trait Table: QuerySource {
         Self: JoinTo<T>,
     {
         InnerJoinSource::new(self, other)
+    }
+
+    fn left_outer_join<T>(self, other: T) -> LeftOuterJoinSource<Self, T> where
+        T: Table,
+        Self: JoinTo<T>,
+    {
+        LeftOuterJoinSource::new(self, other)
     }
 }
 

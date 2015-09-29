@@ -1,6 +1,6 @@
 mod impls;
 
-use row::{Row, Rows};
+use row::Row;
 use std::error::Error;
 use std::io::Write;
 
@@ -23,6 +23,7 @@ pub struct Binary;
 
 pub struct Nullable<T: NativeSqlType>(T);
 pub struct Array<T: NativeSqlType>(T);
+pub struct Many<T: NativeSqlType>(T);
 
 pub trait NativeSqlType {}
 
@@ -49,14 +50,14 @@ impl<A, T> FromSqlRow<A> for T where
 }
 
 pub trait FromSqlResult<A: NativeSqlType>: Sized {
-    fn build_from_rows<'a, R: Rows<'a>>(rows: &'a mut R) -> Option<Result<Self, Box<Error>>>;
+    fn build_from_rows<R: Row, I: Iterator<Item=R>>(rows: &mut I) -> Option<Result<Self, Box<Error>>>;
 }
 
 impl<A, T> FromSqlResult<A> for T where
     A: NativeSqlType,
     T: FromSqlRow<A>,
 {
-    fn build_from_rows<'a, R: Rows<'a>>(rows: &'a mut R) -> Option<Result<Self, Box<Error>>> {
+    fn build_from_rows<R: Row, I: Iterator<Item=R>>(rows: &mut I) -> Option<Result<Self, Box<Error>>> {
         rows.next().as_mut().map(Self::build_from_row)
     }
 }
@@ -86,5 +87,16 @@ impl<A, T> ValuesToSql<A> for T where
             IsNull::Yes => None,
         };
         Ok(vec![bytes])
+    }
+}
+
+impl<A: NativeSqlType> NativeSqlType for Many<A> {}
+
+impl<A, T> FromSqlResult<Many<A>> for Vec<T> where
+    A: NativeSqlType,
+    T: FromSqlRow<A>,
+{
+    fn build_from_rows<R: Row, I: Iterator<Item=R>>(rows: &mut I) -> Option<Result<Self, Box<Error>>> {
+        Some(rows.map(|mut row| T::build_from_row(&mut row)).collect())
     }
 }
