@@ -1,14 +1,9 @@
-mod filter;
 mod joins;
-mod select;
 
-use expression::{Expression, SelectableExpression, NonAggregate, SqlLiteral};
-use expression::count::*;
-pub use self::filter::FilteredQuerySource;
+use expression::{Expression, SelectableExpression, NonAggregate};
+use query_builder::AsQuery;
 pub use self::joins::{InnerJoinSource, LeftOuterJoinSource};
-pub use self::select::SelectSqlQuerySource;
-use std::convert::Into;
-use types::{self, FromSqlRow, NativeSqlType};
+use types::{FromSqlRow, NativeSqlType};
 
 pub use self::joins::JoinTo;
 
@@ -16,45 +11,6 @@ pub trait Queriable<ST: NativeSqlType> {
     type Row: FromSqlRow<ST>;
 
     fn build(row: Self::Row) -> Self;
-}
-
-pub trait QuerySource: Sized {
-    type SqlType: NativeSqlType;
-
-    fn select_clause(&self) -> String;
-    fn from_clause(&self) -> String;
-    fn where_clause(&self) -> Option<(String, Vec<Option<Vec<u8>>>)>;
-
-    fn select<E, ST>(self, expr: E) -> SelectSqlQuerySource<ST, Self, E> where
-        SelectSqlQuerySource<ST, Self, E>: QuerySource,
-    {
-        SelectSqlQuerySource::new(expr, self)
-    }
-
-    fn count(self) -> SelectSqlQuerySource<types::BigInt, Self, CountStar> {
-        self.select(count_star())
-    }
-
-    fn select_sql<A: NativeSqlType>(self, columns: &str)
-        -> SelectSqlQuerySource<A, Self, SqlLiteral<A>>
-    {
-        self.select_sql_inner(columns)
-    }
-
-    fn select_sql_inner<A, S>(self, columns: S)
-        -> SelectSqlQuerySource<A, Self, SqlLiteral<A>> where
-        A: NativeSqlType,
-        S: Into<String>
-    {
-        let sql = SqlLiteral::new(columns.into());
-        SelectSqlQuerySource::new(sql, self)
-    }
-
-    fn filter<T>(self, predicate: T) -> FilteredQuerySource<Self, T> where
-        T: SelectableExpression<Self, types::Bool>,
-    {
-        FilteredQuerySource::new(self, predicate)
-    }
 }
 
 pub trait Column {
@@ -80,8 +36,9 @@ impl<C: Column> SelectableExpression<C::Table> for C {
 impl<C: Column> NonAggregate for C {
 }
 
-pub trait Table: QuerySource {
+pub trait Table: AsQuery + Sized {
     type PrimaryKey: Column<Table=Self>;
+    type Star: Column<Table=Self>;
     fn name(&self) -> &str;
     fn primary_key(&self) -> Self::PrimaryKey;
 

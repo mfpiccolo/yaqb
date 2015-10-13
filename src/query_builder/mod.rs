@@ -1,20 +1,31 @@
 use expression::count::CountStar;
 use expression::*;
+use query_source::Table;
 use types::{Bool, NativeSqlType};
 
 pub trait Query {
-    type SqlType;
+    type SqlType: NativeSqlType;
 }
 
 pub trait AsQuery {
-    type Query: Query;
+    type SqlType: NativeSqlType;
+    type Query: Query<SqlType=Self::SqlType>;
 
     fn as_query(self) -> Self::Query;
 }
 
+impl<T: Query> AsQuery for T {
+    type SqlType = <Self as Query>::SqlType;
+    type Query = Self;
+
+    fn as_query(self) -> Self::Query {
+        self
+    }
+}
+
 use std::marker::PhantomData;
 
-pub struct SelectStatement<SqlType, Select, From, Where> {
+pub struct SelectStatement<SqlType, Select, From, Where = Bound<Bool, bool>> {
     select: Select,
     from: From,
     where_clause: Where,
@@ -58,7 +69,7 @@ impl<ST, Select, From, Where, Pred> FilterDsl<Pred>
 }
 
 impl<Pred, T> FilterDsl<Pred> for T where
-    T: AsQuery,
+    T: Table,
     T::Query: FilterDsl<Pred>,
 {
     type Output = <T::Query as FilterDsl<Pred>>::Output;
@@ -68,9 +79,11 @@ impl<Pred, T> FilterDsl<Pred> for T where
     }
 }
 
-
-pub trait SelectDsl<Selection> {
-    type Output: Query;
+pub trait SelectDsl<
+    Selection: Expression,
+    Type = <Selection as Expression>::SqlType,
+> {
+    type Output: Query<SqlType=Type>;
 
     fn select(self, selection: Selection) -> Self::Output;
 
@@ -98,13 +111,27 @@ pub trait SelectDsl<Selection> {
     }
 }
 
-impl<ST, S, F, W, Selection> SelectDsl<Selection>
+impl<ST, S, F, W, Selection, Type> SelectDsl<Selection, Type>
     for SelectStatement<ST, S, F, W> where
-    SelectStatement<ST, Selection, F, W>: Query,
+    Selection: Expression,
+    SelectStatement<Type, Selection, F, W>: Query<SqlType=Type>,
 {
-    type Output = SelectStatement<ST, Selection, F, W>;
+    type Output = SelectStatement<Type, Selection, F, W>;
 
     fn select(self, selection: Selection) -> Self::Output {
         SelectStatement::new(selection, self.from, self.where_clause)
+    }
+}
+
+// FIXME: This can be made generic on AsQuery after Specialization lands
+impl<Selection, T> SelectDsl<Selection> for T where
+    Selection: Expression,
+    T: Table,
+    T::Query: SelectDsl<Selection>,
+{
+    type Output = <T::Query as SelectDsl<Selection>>::Output;
+
+    fn select(self, selection: Selection) -> Self::Output {
+        self.as_query().select(selection)
     }
 }

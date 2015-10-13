@@ -1,4 +1,6 @@
-use {QuerySource, Table};
+use expression::{Expression, SelectableExpression};
+use query_builder::*;
+use super::Table;
 use types::Nullable;
 
 #[derive(Clone, Copy)]
@@ -16,23 +18,23 @@ impl<Left, Right> InnerJoinSource<Left, Right> {
     }
 }
 
-impl<Left, Right> QuerySource for InnerJoinSource<Left, Right> where
+impl<Left, Right> AsQuery for InnerJoinSource<Left, Right> where
     Left: Table + JoinTo<Right>,
     Right: Table,
+    (Left::Star, Right::Star): SelectableExpression<
+                               InnerJoinSource<Left, Right>,
+                               (Left::SqlType, Right::SqlType),
+                               >,
 {
     type SqlType = (Left::SqlType, Right::SqlType);
+    type Query = SelectStatement<
+        (Left::SqlType, Right::SqlType),
+        (Left::Star, Right::Star),
+        Self,
+    >;
 
-    fn select_clause(&self) -> String {
-        format!("{}, {}", self.left.select_clause(), self.right.select_clause())
-    }
-
-    fn from_clause(&self) -> String {
-        format!("{} INNER JOIN {} ON {}",
-            self.left.name(), self.right.name(), self.left.join_sql())
-    }
-
-    fn where_clause(&self) -> Option<(String, Vec<Option<Vec<u8>>>)> {
-        None
+    fn as_query(self) -> Self::Query {
+        unimplemented!()
     }
 }
 
@@ -51,23 +53,37 @@ impl<Left, Right> LeftOuterJoinSource<Left, Right> {
     }
 }
 
-impl<Left, Right> QuerySource for LeftOuterJoinSource<Left, Right> where
+impl<Left, Right> AsQuery for LeftOuterJoinSource<Left, Right> where
     Left: Table + JoinTo<Right>,
     Right: Table,
+    (Left::Star, Right::Star): SelectableExpression<
+                               LeftOuterJoinSource<Left, Right>,
+                               (Left::SqlType, Nullable<Right::SqlType>),
+                               >,
 {
     type SqlType = (Left::SqlType, Nullable<Right::SqlType>);
+    type Query = SelectStatement<
+        (Left::SqlType, Nullable<Right::SqlType>),
+        (Left::Star, Right::Star),
+        Self,
+    >;
 
-    fn select_clause(&self) -> String {
-        format!("{}, {}", self.left.select_clause(), self.right.select_clause())
+    fn as_query(self) -> Self::Query {
+        unimplemented!()
     }
+}
 
-    fn from_clause(&self) -> String {
-        format!("{} LEFT OUTER JOIN {} ON {}",
-            self.left.name(), self.right.name(), self.left.join_sql())
-    }
+// FIXME: This can be made generic on AsQuery after Specialization lands
+impl<Selection, Type, Left, Right> SelectDsl<Selection, Type>
+    for LeftOuterJoinSource<Left, Right> where
+    Selection: Expression,
+    LeftOuterJoinSource<Left, Right>: AsQuery,
+    <LeftOuterJoinSource<Left, Right> as AsQuery>::Query: SelectDsl<Selection, Type>,
+{
+    type Output = <<Self as AsQuery>::Query as SelectDsl<Selection>>::Output;
 
-    fn where_clause(&self) -> Option<(String, Vec<Option<Vec<u8>>>)> {
-        None
+    fn select(self, selection: Selection) -> Self::Output {
+        self.as_query().select(selection)
     }
 }
 

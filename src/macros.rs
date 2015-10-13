@@ -17,7 +17,8 @@ macro_rules! table {
         }
     ) => {
         pub mod $name {
-            use $crate::{QuerySource, Table, Column};
+            use $crate::query_builder::SelectStatement;
+            use $crate::{Table, Column, AsQuery};
             use $crate::types::*;
             pub use self::columns::*;
 
@@ -32,24 +33,18 @@ macro_rules! table {
 
             pub type SqlType = ($($Type),+);
 
-            impl QuerySource for table {
+            impl AsQuery for table {
                 type SqlType = SqlType;
+                type Query = SelectStatement<SqlType, star, Self>;
 
-                fn select_clause(&self) -> String {
-                    star.qualified_name()
-                }
-
-                fn from_clause(&self) -> String {
-                    stringify!($name).to_string()
-                }
-
-                fn where_clause(&self) -> Option<(String, Vec<Option<Vec<u8>>>)> {
-                    None
+                fn as_query(self) -> Self::Query {
+                    unimplemented!()
                 }
             }
 
             impl Table for table {
                 type PrimaryKey = columns::$pk;
+                type Star = star;
 
                 fn name(&self) -> &str {
                     stringify!($name)
@@ -215,20 +210,6 @@ macro_rules! select_column_inner {
         impl $crate::expression::SelectableExpression<
             $crate::query_source::LeftOuterJoinSource<$parent::table, $child::table>,
         > for $parent::$column_name
-        {
-        }
-
-        impl<A, S, E> $crate::expression::SelectableExpression<
-            $crate::query_source::SelectSqlQuerySource<A, S, E>>
-            for $parent::$column_name where
-            $parent::$column_name: $crate::expression::SelectableExpression<S>,
-        {
-        }
-
-        impl<Source, Pred> $crate::expression::SelectableExpression<
-            $crate::query_source::FilteredQuerySource<Source, Pred>>
-            for $parent::$column_name where
-            $parent::$column_name: $crate::expression::SelectableExpression<Source>,
         {
         }
     }
