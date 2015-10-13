@@ -1,7 +1,7 @@
 use expression::{Expression, SelectableExpression};
 use query_builder::*;
 use super::Table;
-use types::Nullable;
+use types::{NativeSqlType, Nullable, Bool};
 
 #[derive(Clone, Copy)]
 pub struct InnerJoinSource<Left, Right> {
@@ -35,6 +35,34 @@ impl<Left, Right> AsQuery for InnerJoinSource<Left, Right> where
 
     fn as_query(self) -> Self::Query {
         unimplemented!()
+    }
+}
+
+// FIXME: This can be made generic on AsQuery after Specialization lands
+impl<Selection, Type, Left, Right> SelectDsl<Selection, Type>
+    for InnerJoinSource<Left, Right> where
+    Type: NativeSqlType,
+    Selection: Expression,
+    InnerJoinSource<Left, Right>: AsQuery,
+    <InnerJoinSource<Left, Right> as AsQuery>::Query: SelectDsl<Selection, Type>,
+{
+    type Output = <<Self as AsQuery>::Query as SelectDsl<Selection, Type>>::Output;
+
+    fn select(self, selection: Selection) -> Self::Output {
+        self.as_query().select(selection)
+    }
+}
+
+// FIXME: This can be made generic on AsQuery after Specialization lands
+impl<Pred, Left, Right> FilterDsl<Pred> for InnerJoinSource<Left, Right> where
+    Pred: SelectableExpression<InnerJoinSource<Left, Right>, Bool>,
+    InnerJoinSource<Left, Right>: AsQuery,
+    <InnerJoinSource<Left, Right> as AsQuery>::Query: FilterDsl<Pred>,
+{
+    type Output = <<Self as AsQuery>::Query as FilterDsl<Pred>>::Output;
+
+    fn filter(self, predicate: Pred) -> Self::Output {
+        self.as_query().filter(predicate)
     }
 }
 
@@ -76,14 +104,28 @@ impl<Left, Right> AsQuery for LeftOuterJoinSource<Left, Right> where
 // FIXME: This can be made generic on AsQuery after Specialization lands
 impl<Selection, Type, Left, Right> SelectDsl<Selection, Type>
     for LeftOuterJoinSource<Left, Right> where
-    Selection: Expression,
+    Type: NativeSqlType,
+    Selection: SelectableExpression<LeftOuterJoinSource<Left, Right>, Type>,
     LeftOuterJoinSource<Left, Right>: AsQuery,
     <LeftOuterJoinSource<Left, Right> as AsQuery>::Query: SelectDsl<Selection, Type>,
 {
-    type Output = <<Self as AsQuery>::Query as SelectDsl<Selection>>::Output;
+    type Output = <<Self as AsQuery>::Query as SelectDsl<Selection, Type>>::Output;
 
     fn select(self, selection: Selection) -> Self::Output {
         self.as_query().select(selection)
+    }
+}
+
+// FIXME: This can be made generic on AsQuery after Specialization lands
+impl<Pred, Left, Right> FilterDsl<Pred> for LeftOuterJoinSource<Left, Right> where
+    Pred: SelectableExpression<LeftOuterJoinSource<Left, Right>, Bool>,
+    LeftOuterJoinSource<Left, Right>: AsQuery,
+    <LeftOuterJoinSource<Left, Right> as AsQuery>::Query: FilterDsl<Pred>,
+{
+    type Output = <<Self as AsQuery>::Query as FilterDsl<Pred>>::Output;
+
+    fn filter(self, predicate: Pred) -> Self::Output {
+        self.as_query().filter(predicate)
     }
 }
 

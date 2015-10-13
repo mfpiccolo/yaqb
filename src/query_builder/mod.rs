@@ -81,7 +81,7 @@ impl<Pred, T> FilterDsl<Pred> for T where
 
 pub trait SelectDsl<
     Selection: Expression,
-    Type = <Selection as Expression>::SqlType,
+    Type: NativeSqlType = <Selection as Expression>::SqlType,
 > {
     type Output: Query<SqlType=Type>;
 
@@ -113,6 +113,7 @@ pub trait SelectDsl<
 
 impl<ST, S, F, W, Selection, Type> SelectDsl<Selection, Type>
     for SelectStatement<ST, S, F, W> where
+    Type: NativeSqlType,
     Selection: Expression,
     SelectStatement<Type, Selection, F, W>: Query<SqlType=Type>,
 {
