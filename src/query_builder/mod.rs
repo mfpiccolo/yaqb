@@ -3,6 +3,7 @@ use expression::*;
 use types::{Bool, NativeSqlType};
 
 pub trait Query {
+    type SqlType;
 }
 
 pub trait AsQuery {
@@ -11,13 +12,32 @@ pub trait AsQuery {
     fn as_query(self) -> Self::Query;
 }
 
-pub struct SelectStatement<Select, From, Where> {
+use std::marker::PhantomData;
+
+pub struct SelectStatement<SqlType, Select, From, Where> {
     select: Select,
     from: From,
     where_clause: Where,
+    _marker: PhantomData<SqlType>,
 }
 
-impl<Select, From, Where> Query for SelectStatement<Select, From, Where> {
+impl<ST, S, F, W> SelectStatement<ST, S, F, W> {
+    pub fn new(select: S, from: F, where_clause: W) -> Self {
+        SelectStatement {
+            select: select,
+            from: from,
+            where_clause: where_clause,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<Type, Select, From, Where> Query for SelectStatement<Type, Select, From, Where> where
+    Type: NativeSqlType,
+    Select: SelectableExpression<From, Type>,
+    Where: SelectableExpression<From, Bool>,
+{
+    type SqlType = Type;
 }
 
 pub trait FilterDsl<Predicate> {
@@ -26,18 +46,14 @@ pub trait FilterDsl<Predicate> {
     fn filter(self, predicate: Predicate) -> Self::Output;
 }
 
-impl<Select, From, Where, Pred> FilterDsl<Pred>
-    for SelectStatement<Select, From, Where> where
-    Pred: SelectableExpression<From, Bool>,
+impl<ST, Select, From, Where, Pred> FilterDsl<Pred>
+    for SelectStatement<ST, Select, From, Where> where
+    SelectStatement<ST, Select, From, Pred>: Query,
 {
-    type Output = SelectStatement<Select, From, Pred>;
+    type Output = SelectStatement<ST, Select, From, Pred>;
 
     fn filter(self, predicate: Pred) -> Self::Output {
-        SelectStatement {
-            select: self.select,
-            from: self.from,
-            where_clause: predicate,
-        }
+        SelectStatement::new(self.select, self.from, predicate)
     }
 }
 
@@ -82,16 +98,13 @@ pub trait SelectDsl<Selection> {
     }
 }
 
-impl<S, F, W, Selection> SelectDsl<Selection> for SelectStatement<S, F, W> where
-    Selection: SelectableExpression<F>,
+impl<ST, S, F, W, Selection> SelectDsl<Selection>
+    for SelectStatement<ST, S, F, W> where
+    SelectStatement<ST, Selection, F, W>: Query,
 {
-    type Output = SelectStatement<Selection, F, W>;
+    type Output = SelectStatement<ST, Selection, F, W>;
 
     fn select(self, selection: Selection) -> Self::Output {
-        SelectStatement {
-            select: selection,
-            from: self.from,
-            where_clause: self.where_clause,
-        }
+        SelectStatement::new(selection, self.from, self.where_clause)
     }
 }
