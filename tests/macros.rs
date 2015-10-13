@@ -1,6 +1,6 @@
 extern crate yaqb;
 
-use yaqb::{Query, Table, Column};
+use yaqb::{Table, Column};
 use yaqb::expression::*;
 use yaqb::persistable::InsertableColumns;
 

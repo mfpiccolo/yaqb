@@ -101,7 +101,7 @@ fn with_select_sql() {
         .unwrap();
 
     let select_count = users::table.select_sql::<types::BigInt>("COUNT(*)");
-    let get_count = || connection.query_one::<_, i64>(select_count).unwrap();
+    let get_count = || connection.query_one::<_, i64>(select_count.clone()).unwrap();
 
     assert_eq!(Some(2), get_count());
 

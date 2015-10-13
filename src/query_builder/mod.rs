@@ -25,6 +25,7 @@ impl<T: Query> AsQuery for T {
 
 use std::marker::PhantomData;
 
+#[derive(Debug, Clone, Copy)]
 pub struct SelectStatement<SqlType, Select, From, Where = Bound<Bool, bool>> {
     select: Select,
     from: From,
@@ -86,29 +87,37 @@ pub trait SelectDsl<
     type Output: Query<SqlType=Type>;
 
     fn select(self, selection: Selection) -> Self::Output;
+}
 
-    fn count(self) -> <Self as SelectDsl<CountStar>>::Output where
-        Self: SelectDsl<CountStar> + Sized,
-    {
+pub trait CountDsl: SelectDsl<CountStar> + Sized {
+    fn count(self) -> <Self as SelectDsl<CountStar>>::Output {
         self.select(count_star())
     }
+}
 
+impl<T> CountDsl for T where T: SelectDsl<CountStar> {
+}
+
+pub trait SelectSqlDsl: Sized {
     fn select_sql<A>(self, columns: &str)
         -> <Self as SelectDsl<SqlLiteral<A>>>::Output where
         A: NativeSqlType,
-        Self: SelectDsl<SqlLiteral<A>> + Sized,
+        Self: SelectDsl<SqlLiteral<A>>,
     {
-        <Self as SelectDsl<SqlLiteral<A>>>::select_sql_inner(self, columns)
+        self.select_sql_inner(columns)
     }
 
     fn select_sql_inner<A, S>(self, columns: S)
         -> <Self as SelectDsl<SqlLiteral<A>>>::Output where
         A: NativeSqlType,
         S: Into<String>,
-        Self: SelectDsl<SqlLiteral<A>> + Sized,
+        Self: SelectDsl<SqlLiteral<A>>,
     {
         self.select(SqlLiteral::new(columns.into()))
     }
+}
+
+impl<T> SelectSqlDsl for T where T: SelectDsl<CountStar> {
 }
 
 impl<ST, S, F, W, Selection, Type> SelectDsl<Selection, Type>

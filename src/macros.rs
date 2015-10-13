@@ -18,7 +18,7 @@ macro_rules! table {
     ) => {
         pub mod $name {
             use $crate::query_builder::SelectStatement;
-            use $crate::{Table, Column, AsQuery};
+            use $crate::{Table, AsQuery};
             use $crate::types::*;
             pub use self::columns::*;
 
