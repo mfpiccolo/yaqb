@@ -1,6 +1,6 @@
 use expression::{Expression, SelectableExpression};
 use query_builder::*;
-use super::Table;
+use super::{QuerySource, Table};
 use types::{NativeSqlType, Nullable, Bool};
 
 #[derive(Clone, Copy)]
@@ -15,6 +15,19 @@ impl<Left, Right> InnerJoinSource<Left, Right> {
             left: left,
             right: right,
         }
+    }
+}
+
+impl<Left, Right> QuerySource for InnerJoinSource<Left, Right> where
+    Left: Table + JoinTo<Right>,
+    Right: Table,
+{
+    fn from_clause<T: QueryBuilder>(&self, out: &mut T) {
+        out.push_identifier(&self.left.name());
+        out.push_sql(" INNER JOIN ");
+        out.push_identifier(&self.right.name());
+        out.push_sql(" ON ");
+        out.push_sql(&self.left.join_sql());
     }
 }
 
@@ -34,7 +47,7 @@ impl<Left, Right> AsQuery for InnerJoinSource<Left, Right> where
     >;
 
     fn as_query(self) -> Self::Query {
-        unimplemented!()
+        SelectStatement::simple((self.left.star(), self.right.star()), self)
     }
 }
 
@@ -81,6 +94,19 @@ impl<Left, Right> LeftOuterJoinSource<Left, Right> {
     }
 }
 
+impl<Left, Right> QuerySource for LeftOuterJoinSource<Left, Right> where
+    Left: Table + JoinTo<Right>,
+    Right: Table,
+{
+    fn from_clause<T: QueryBuilder>(&self, out: &mut T) {
+        out.push_identifier(&self.left.name());
+        out.push_sql(" LEFT OUTER JOIN ");
+        out.push_identifier(&self.right.name());
+        out.push_sql(" ON ");
+        out.push_sql(&self.left.join_sql());
+    }
+}
+
 impl<Left, Right> AsQuery for LeftOuterJoinSource<Left, Right> where
     Left: Table + JoinTo<Right>,
     Right: Table,
@@ -97,7 +123,7 @@ impl<Left, Right> AsQuery for LeftOuterJoinSource<Left, Right> where
     >;
 
     fn as_query(self) -> Self::Query {
-        unimplemented!()
+        SelectStatement::simple((self.left.star(), self.right.star()), self)
     }
 }
 

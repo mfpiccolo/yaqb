@@ -38,7 +38,7 @@ macro_rules! table {
                 type Query = SelectStatement<SqlType, star, Self>;
 
                 fn as_query(self) -> Self::Query {
-                    unimplemented!()
+                    SelectStatement::simple(star, self)
                 }
             }
 
@@ -52,6 +52,10 @@ macro_rules! table {
 
                 fn primary_key(&self) -> Self::PrimaryKey {
                     columns::$pk
+                }
+
+                fn star(&self) -> Self::Star {
+                    star
                 }
             }
 

@@ -1,10 +1,18 @@
 use expression::count::CountStar;
 use expression::*;
-use query_source::Table;
+use query_source::{Table, QuerySource};
 use types::{Bool, NativeSqlType};
+
+pub trait QueryBuilder {
+    fn push_sql(&mut self, sql: &str);
+    fn push_identifier(&mut self, identifier: &str);
+    fn output(self) -> (String, Vec<Option<Vec<u8>>>);
+}
 
 pub trait Query {
     type SqlType: NativeSqlType;
+
+    fn to_sql<T: QueryBuilder>(&self, out: &mut T);
 }
 
 pub trait AsQuery {
@@ -44,12 +52,28 @@ impl<ST, S, F, W> SelectStatement<ST, S, F, W> {
     }
 }
 
+impl<ST, S, F> SelectStatement<ST, S, F> {
+    pub fn simple(select: S, from: F) -> Self {
+        SelectStatement::new(select, from, Bound::new(true))
+    }
+}
+
 impl<Type, Select, From, Where> Query for SelectStatement<Type, Select, From, Where> where
     Type: NativeSqlType,
+    From: QuerySource,
     Select: SelectableExpression<From, Type>,
     Where: SelectableExpression<From, Bool>,
 {
     type SqlType = Type;
+
+    fn to_sql<T: QueryBuilder>(&self, out: &mut T) {
+        out.push_sql("SELECT ");
+        self.select.to_sql(out);
+        out.push_sql(" FROM ");
+        self.from.from_clause(out);
+        out.push_sql(" WHERE ");
+        self.where_clause.to_sql(out);
+    }
 }
 
 pub trait FilterDsl<Predicate> {

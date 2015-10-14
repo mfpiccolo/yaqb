@@ -180,8 +180,10 @@ impl Connection {
         self.exec_sql_params(&sql, &params).map(|r| r.rows_affected())
     }
 
-    fn prepare_query<T: Query>(&self, _source: &T) -> (String, Vec<Option<Vec<u8>>>) {
-        unimplemented!()
+    fn prepare_query<T: Query>(&self, source: &T) -> (String, Vec<Option<Vec<u8>>>) {
+        let mut query_builder = PgQueryBuilder::new(self);
+        source.to_sql(&mut query_builder);
+        query_builder.output()
     }
 
     fn execute_inner(&self, query: &str) -> Result<DbResult> {
@@ -247,6 +249,18 @@ impl Connection {
         }
         query
     }
+
+    fn escape_identifier(&self, identifier: &str) -> PgString {
+        unsafe {
+            PgString {
+                ptr: PQescapeIdentifier(
+                         self.internal_connection,
+                         identifier.as_ptr() as *const libc::c_char,
+                         identifier.len() as libc::size_t,
+                     ),
+            }
+        }
+    }
 }
 
 fn last_error_message(conn: *const PGconn) -> String {
@@ -260,5 +274,56 @@ fn last_error_message(conn: *const PGconn) -> String {
 impl Drop for Connection {
     fn drop(&mut self) {
         unsafe { PQfinish(self.internal_connection) };
+    }
+}
+
+struct PgQueryBuilder<'a> {
+    conn: &'a Connection,
+    sql: String,
+    binds: Vec<Option<Vec<u8>>>,
+}
+
+impl<'a> PgQueryBuilder<'a> {
+    fn new(conn: &'a Connection) -> Self {
+        PgQueryBuilder {
+            conn: conn,
+            sql: String::new(),
+            binds: Vec::new(),
+        }
+    }
+}
+
+impl<'a> QueryBuilder for PgQueryBuilder<'a> {
+    fn push_sql(&mut self, sql: &str) {
+        self.sql.push_str(sql);
+    }
+
+    fn push_identifier(&mut self, identifier: &str) {
+        self.push_sql(&self.conn.escape_identifier(identifier));
+    }
+
+    fn output(self) -> (String, Vec<Option<Vec<u8>>>) {
+        (self.sql, self.binds)
+    }
+}
+
+struct PgString {
+    ptr: *mut libc::c_char,
+}
+
+impl Drop for PgString {
+    fn drop(&mut self) {
+        unsafe { PQfreemem(self.ptr as *mut libc::c_void) }
+    }
+}
+
+use std::ops::Deref;
+
+impl Deref for PgString {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        let c_str = unsafe { CStr::from_ptr(self.ptr) };
+        c_str.to_str().unwrap()
     }
 }

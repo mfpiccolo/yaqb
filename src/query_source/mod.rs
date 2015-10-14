@@ -1,7 +1,7 @@
 mod joins;
 
 use expression::{Expression, SelectableExpression, NonAggregate};
-use query_builder::AsQuery;
+use query_builder::{AsQuery, QueryBuilder};
 pub use self::joins::{InnerJoinSource, LeftOuterJoinSource};
 use types::{FromSqlRow, NativeSqlType};
 
@@ -11,6 +11,10 @@ pub trait Queriable<ST: NativeSqlType> {
     type Row: FromSqlRow<ST>;
 
     fn build(row: Self::Row) -> Self;
+}
+
+pub trait QuerySource {
+    fn from_clause<T: QueryBuilder>(&self, out: &mut T);
 }
 
 pub trait Column {
@@ -36,11 +40,13 @@ impl<C: Column> SelectableExpression<C::Table> for C {
 impl<C: Column> NonAggregate for C {
 }
 
-pub trait Table: AsQuery + Sized {
+pub trait Table: QuerySource + AsQuery + Sized {
     type PrimaryKey: Column<Table=Self>;
     type Star: Column<Table=Self>;
+
     fn name(&self) -> &str;
     fn primary_key(&self) -> Self::PrimaryKey;
+    fn star(&self) -> Self::Star;
 
     fn inner_join<T>(self, other: T) -> InnerJoinSource<Self, T> where
         T: Table,
