@@ -8,8 +8,8 @@ pub use self::cursor::Cursor;
 use db_result::DbResult;
 use expression::{AsExpression, Expression, NonAggregate};
 use expression::predicates::Eq;
-use persistable::{Insertable, InsertableColumns, AsBindParam};
-use query_builder::{AsQuery, Query};
+use persistable::{Insertable, InsertableColumns, AsBindParam, UpdateSet};
+use query_builder::{AsQuery, Query, QueryFragment, AsUpdateQuery, UpdateQuery};
 use query_builder::pg::PgQueryBuilder;
 use query_dsl::{FilterDsl, LimitDsl};
 use query_source::{Table, Column, Queriable};
@@ -190,7 +190,19 @@ impl Connection {
         self.exec_sql_params(&sql, &params, &None).map(|r| r.rows_affected())
     }
 
-    fn prepare_query<T: Query>(&self, source: &T) -> (String, Vec<Option<Vec<u8>>>, Vec<u32>) {
+    pub fn update_returning_count<T, U>(&self, source: T, updates: U)
+        -> Result<usize> where
+        T: AsUpdateQuery<U>,
+        U: UpdateSet<<T::UpdateQuery as UpdateQuery>::Source>,
+    {
+        let (sql, binds, bind_types) = self.prepare_query(&source.as_update_query(updates));
+        self.exec_sql_params(&sql, &binds, &Some(bind_types))
+            .map(|r| r.rows_affected())
+    }
+
+    fn prepare_query<T: QueryFragment>(&self, source: &T)
+        -> (String, Vec<Option<Vec<u8>>>, Vec<u32>)
+    {
         let mut query_builder = PgQueryBuilder::new(self);
         source.to_sql(&mut query_builder).unwrap();
         (query_builder.sql, query_builder.binds, query_builder.bind_types)
