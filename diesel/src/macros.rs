@@ -346,3 +346,13 @@ macro_rules! join_through {
         }
     }
 }
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! debug_sql {
+    ($e:expr) => (
+        let mut query_builder = DebugQueryBuilder::new();
+        $query.to_sql(&mut query_builder).unwrap();
+        println!("{}", &query_builder.sql);
+    );
+}
